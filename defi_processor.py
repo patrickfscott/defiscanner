@@ -13,16 +13,43 @@ class DeFiChainDataProcessor:
         response = requests.get(f'{self.base_url}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=dailyFees')
         data = response.json()
         return data["allChains"]
+
+    def get_protocol_data_for_ethereum(self) -> Dict[str, float]:
+        """Fetch protocol-level data for Ethereum chain."""
+        response = requests.get(f'{self.base_url}/Ethereum?excludeTotalDataChart=false&excludeTotalDataChartBreakdown=false&dataType=dailyFees')
+        data = response.json()
+        
+        # Get daily fees for Tether and Circle from protocols array
+        protocol_fees = {}
+        for protocol in data.get("protocols", []):
+            if protocol["name"].lower() in ["tether", "circle", "usdt", "usdc"]:
+                # Check if protocol operates on Ethereum
+                if "Ethereum" in protocol.get("chains", []):
+                    protocol_fees[protocol["name"]] = protocol.get("total24h", 0)
+        
+        return protocol_fees
     
     def get_chain_data(self, chain_name: str) -> List[Dict]:
         """Fetch and process data for a specific chain."""
         response = requests.get(f'{self.base_url}/{chain_name}?excludeTotalDataChart=false&excludeTotalDataChartBreakdown=true&dataType=dailyFees')
         data = response.json()
+
+        # If this is Ethereum, get protocol data to subtract
+        protocol_fees = {}
+        if chain_name.lower() == "ethereum":
+            protocol_data = self.get_protocol_data_for_ethereum()
         
         # Process the time series data
         processed_data = []
         for timestamp, value in data["totalDataChart"]:
             date = datetime.utcfromtimestamp(int(timestamp)).strftime('%Y-%m-%d')
+
+            # For Ethereum, subtract Tether and Circle fees
+            if chain_name.lower() == "ethereum":
+                for protocol_values in protocol_data.values():
+                    if date in protocol_values:
+                        value -= protocol_values[date]
+            
             processed_data.append({
                 'date': date,
                 'value': value
