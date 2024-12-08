@@ -13,47 +13,43 @@ class DeFiChainDataProcessor:
         response = requests.get(f'{self.base_url}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=dailyFees')
         data = response.json()
         return data["allChains"]
-
-    def get_protocol_data_for_ethereum(self) -> Dict[str, float]:
-        """Fetch protocol-level data for Ethereum chain."""
-        response = requests.get(f'{self.base_url}/Ethereum?excludeTotalDataChart=false&excludeTotalDataChartBreakdown=false&dataType=dailyFees')
-        data = response.json()
-        
-        # Get daily fees for Tether and Circle from protocols array
-        protocol_fees = {}
-        for protocol in data.get("protocols", []):
-            if protocol["name"].lower() in ["tether", "circle", "usdt", "usdc"]:
-                protocol_fees[protocol["name"]] = protocol.get("total24h", 0)
-                print(f"Found {protocol['name']}: ${daily_fees:,.2f} in 24h fees")
-
-        if not protocol_fees:
-            print("No Tether or Circle protocol fees found for Ethereum")
-        else:
-            total = sum(protocol_fees.values())
-            print(f"Total fees to subtract: ${total:,.2f}")
-        
-        return protocol_fees
     
     def get_chain_data(self, chain_name: str) -> List[Dict]:
         """Fetch and process data for a specific chain."""
         response = requests.get(f'{self.base_url}/{chain_name}?excludeTotalDataChart=false&excludeTotalDataChartBreakdown=true&dataType=dailyFees')
         data = response.json()
 
-        # If this is Ethereum, get protocol data to subtract
-        protocol_fees = {}
-        if chain_name.lower() == "ethereum":
-            protocol_data = self.get_protocol_data_for_ethereum()
         
         # Process the time series data
         processed_data = []
+
+        # If this is Ethereum, look for Tether/Circle protocols
+        if chain_name.lower() == "ethereum":
+            print(f"\nProcessing Ethereum data...")
+            tether_circle_protocols = []
+            
+            for protocol in data.get("protocols", []):
+                if protocol["name"].lower() in ["tether", "circle", "usdt", "usdc"]:
+                    if "Ethereum" in protocol.get("chains", []):
+                        print(f"Found protocol: {protocol['name']}")
+                        tether_circle_protocols.append(protocol)
+            
+            if not tether_circle_protocols:
+                print("No Tether or Circle protocols found for Ethereum")
+        
         for timestamp, value in data["totalDataChart"]:
             date = datetime.utcfromtimestamp(int(timestamp)).strftime('%Y-%m-%d')
 
-            # For Ethereum, subtract Tether and Circle fees
-            if chain_name.lower() == "ethereum":
-                for protocol_values in protocol_data.values():
-                    if date in protocol_values:
-                        value -= protocol_values[date]
+            # For Ethereum, subtract any protocol fees at this timestamp
+            if chain_name.lower() == "ethereum" and tether_circle_protocols:
+                original_value = value
+                for protocol in tether_circle_protocols:
+                    # Look for matching timestamp in protocol breakdown
+                    if "breakdown" in protocol:
+                        for ts, fee in protocol["breakdown"]:
+                            if ts == timestamp:
+                                value -= fee
+                                print(f"Date: {date} - Subtracted ${fee:,.2f} from {protocol['name']}")
             
             processed_data.append({
                 'date': date,
