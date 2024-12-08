@@ -7,6 +7,21 @@ from typing import Dict, List, Tuple
 class DeFiChainDataProcessor:
     def __init__(self):
         self.base_url = 'https://api.llama.fi/overview/fees'
+
+        # Configure logging
+        self.logger = logging.getLogger('DefiProcessor')
+        self.logger.setLevel(logging.INFO)
+        
+        # Create console handler with a higher log level
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        
+        # Create formatter and add it to the handler
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        
+        # Add the handler to the logger
+        self.logger.addHandler(handler)
         
     def get_chain_names(self) -> List[str]:
         """Fetch and return list of all chain names from DefiLlama."""
@@ -25,17 +40,17 @@ class DeFiChainDataProcessor:
 
         # If this is Ethereum, look for Tether/Circle protocols
         if chain_name.lower() == "ethereum":
-            print(f"\nProcessing Ethereum data...")
+            self.logger.info(f"Processing Ethereum data...")
             tether_circle_protocols = []
             
             for protocol in data.get("protocols", []):
                 if protocol["name"].lower() in ["tether", "circle", "usdt", "usdc"]:
                     if "Ethereum" in protocol.get("chains", []):
-                        print(f"Found protocol: {protocol['name']}")
+                        self.logger.info(f"Found protocol: {protocol['name']}")
                         tether_circle_protocols.append(protocol)
             
             if not tether_circle_protocols:
-                print("No Tether or Circle protocols found for Ethereum")
+                self.logger.warning("No Tether or Circle protocols found for Ethereum")
         
         for timestamp, value in data["totalDataChart"]:
             date = datetime.utcfromtimestamp(int(timestamp)).strftime('%Y-%m-%d')
@@ -49,7 +64,6 @@ class DeFiChainDataProcessor:
                         for ts, fee in protocol["breakdown"]:
                             if ts == timestamp:
                                 value -= fee
-                                print(f"Date: {date} - Subtracted ${fee:,.2f} from {protocol['name']}")
             
             processed_data.append({
                 'date': date,
@@ -78,8 +92,9 @@ class DeFiChainDataProcessor:
                         entry['date']: entry['value']
                         for entry in chain_data
                     }
+                    self.logger.info(f"Successfully processed {len(chain_data)} days of data for {chain}")
             except Exception as e:
-                print(f"Error fetching data for {chain}: {str(e)}")
+                self.logger.error(f"Error fetching data for {chain}: {str(e)}")
                 continue
         
         # Get all unique dates
