@@ -3,6 +3,8 @@ import requests
 import json
 from datetime import datetime
 from typing import Dict, List, Tuple
+import logging
+import sys
 
 class DeFiChainDataProcessor:
     def __init__(self):
