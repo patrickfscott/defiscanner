@@ -26,6 +26,7 @@ class DeFiChainDataProcessor:
                 # Check if protocol operates on Ethereum
                 if "Ethereum" in protocol.get("chains", []):
                     protocol_fees[protocol["name"]] = protocol.get("total24h", 0)
+                    print(f"Found {protocol['name']}: ${daily_fees:,.2f} in 24h fees")
         
         return protocol_fees
     
