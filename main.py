@@ -5,6 +5,7 @@ import json
 import os
 from datetime import datetime
 import logging
+import sys
 
 # Import our existing data processor
 from defi_processor import DeFiChainDataProcessor
@@ -27,8 +28,22 @@ CACHE_KEY = "defi_chain_data"
 CACHE_EXPIRATION = 60 * 60 * 24  # 24 hours in seconds
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)logger = logging.getLogger(__name__)
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting FastAPI application")
+    try:
+        # Force a data refresh on startup
+        await get_fresh_data()
+        logger.info("Initial data fetch completed")
+    except Exception as e:
+        logger.error(f"Error during startup: {str(e)}")
 
 async def get_fresh_data():
     """Fetch fresh data from DefiLlama API"""
@@ -102,13 +117,16 @@ async def get_chain_fees(chain_filter: str = None):
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint that also verifies Redis connection"""
+    logger.info("Health check called")
     try:
         redis_client.ping()
+        logger.info("Redis connection successful")
         return {
             "status": "healthy",
             "redis": "connected"
         }
     except redis.RedisError:
+        logger.error(f"Redis connection failed: {str(e)}")
         return {
             "status": "healthy",
             "redis": "disconnected"
