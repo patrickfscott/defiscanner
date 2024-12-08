@@ -25,6 +25,12 @@ class DeFiChainDataProcessor:
             if protocol["name"].lower() in ["tether", "circle", "usdt", "usdc"]:
                 protocol_fees[protocol["name"]] = protocol.get("total24h", 0)
                 print(f"Found {protocol['name']}: ${daily_fees:,.2f} in 24h fees")
+
+        if not protocol_fees:
+            print("No Tether or Circle protocol fees found for Ethereum")
+        else:
+            total = sum(protocol_fees.values())
+            print(f"Total fees to subtract: ${total:,.2f}")
         
         return protocol_fees
     
