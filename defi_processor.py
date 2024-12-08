@@ -24,6 +24,8 @@ class DeFiChainDataProcessor:
         
         # Add the handler to the logger
         self.logger.addHandler(handler)
+
+        self.logger.info("DeFiChainDataProcessor initialized")
         
     def get_chain_names(self) -> List[str]:
         """Fetch and return list of all chain names from DefiLlama."""
